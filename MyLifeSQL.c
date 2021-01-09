@@ -333,7 +333,9 @@ int main(void)
 
 /* Helper functions */
 char **allocCharMatrix(int nrows, int ncolumns) {
-    /* allocates memory for 2d char array and returns its location */
+    /* allocates memory for 2d char array 
+     * On success returns the char **, otherwise frees all allocated blocks and returns NULL
+     */
     int i, j;
     char **mat = (char **)malloc(nrows * sizeof(char *));
     
@@ -352,6 +354,7 @@ char **allocCharMatrix(int nrows, int ncolumns) {
 
 void deallocCharMatrix(char **mat, int nrows)
 {
+    /* frees the memory allocated for 2d char array */
     int i;
     
     for(i = 0; i < nrows; i++) 
