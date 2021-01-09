@@ -25,6 +25,8 @@
 #define STUDENT_TO_COURSE_IDS_FILE "studentToCourseIds.txt"
 
 /* Helper functions */
+char **allocCharMatrix(int nrows, int ncolumns);
+void deallocCharMatrix(char **mat, int nrows);
 int getNextId(const char *fileName);
 void pushId(int id, const char *fileName);
 long getIdLocation(const char *fileName, const char *needle);
@@ -330,6 +332,32 @@ int main(void)
 }
 
 /* Helper functions */
+char **allocCharMatrix(int nrows, int ncolumns) {
+    /* allocates memory for 2d char array and returns its location */
+    int i, j;
+    char **mat = (char **)malloc(nrows * sizeof(char *));
+    
+    if(mat == NULL) return NULL;
+    for(i = 0; i < nrows; i++) {
+        mat[i] = (char *)malloc(ncolumns * sizeof(char));
+        if(mat[i] == NULL) {
+            for(j = 0; j < i; j++) 
+                free(mat[j]);
+            free(mat);
+            return NULL;
+        }
+    }
+    return mat;
+}
+
+void deallocCharMatrix(char **mat, int nrows)
+{
+    int i;
+    
+    for(i = 0; i < nrows; i++) 
+        free(mat[i]);
+    free(mat);
+}
 int getNextId(const char *fileName)
 {
     /* id file format is like this:
@@ -538,20 +566,9 @@ void printColumnNames(FILE *outputStream, int argCount, ...)
     va_list argList;
     char **argVector; // array of column names to print
 
-    if((argVector = (char **)malloc(argCount * sizeof(char *))) == NULL) {
+    if((argVector = allocCharMatrix(argCount, LEN)) == NULL) {
         printf("!! Not enough memory (f printColumnNames) !!\n");
         return;
-    }
-    for(i = 0; i < argCount; i++) {
-        argVector[i] = (char *)malloc(LEN * sizeof(char));
-        if(argVector[i] == NULL) {
-            for(j = 0; j < i; j++) {
-                free(argVector[j]);
-            }
-            printf("!! Not enough memory (f printColumnNames) !!\n");
-            free(argVector);
-            return;
-        }
     }
     va_start(argList, argCount);
     // Get the values from argList
@@ -578,10 +595,7 @@ void printColumnNames(FILE *outputStream, int argCount, ...)
     }
     fprintf(outputStream, "\n");
     // free the 2d array
-    for(i = 0; i < argCount; i++) {
-        free(argVector[i]);
-    }
-    free(argVector);
+    deallocCharMatrix(argVector, argCount);
 }
 
 /* Generic functions */
@@ -680,21 +694,10 @@ int updateTable(const char *fileName, const char *rowId, int argCount, ...)
         printf("!! Not enough memory (f updateTable) !!\n");
         return MEM_ERR;
     }
-    if((columnValues = (char **)malloc(updateCount * sizeof(char *))) == NULL) {
+    if((columnValues = allocCharMatrix(updateCount, LEN)) == NULL) {
         printf("!! Not enough memory (f updateTable) !!\n");
         free(columnIndices);
         return MEM_ERR;
-    }
-    for(i = 0; i < updateCount; i++) {
-        columnValues[i] = (char *)malloc(LEN * sizeof(char));
-        if(columnValues[i] == NULL) {
-            for(j = 0; j < i; j++) {
-                free(columnValues[j]);
-            }
-            printf("!! Not enough memory (f updateTable) !!\n");
-            free(columnValues), free(columnIndices);
-            return MEM_ERR;
-        }
     }
 
     va_start(argList, argCount);
@@ -713,7 +716,8 @@ int updateTable(const char *fileName, const char *rowId, int argCount, ...)
     // Pass parsed argument arrays to other function
     returnStatus = updateTableWithArray(fileName, rowId, updateCount, columnIndices, columnValues);
 
-    free(columnIndices), free(columnValues);
+    free(columnIndices);
+    deallocCharMatrix(columnValues, updateCount);
     return returnStatus;
 }
 
@@ -833,21 +837,10 @@ void userUpdatesTable(const char *fileName, const char *rowId)
         printf("!! Not enough memory (f userUpdatesTable) !!\n");
         return;
     }
-    if((columnValues = (char **)malloc(updateCount * sizeof(char *))) == NULL) {
+    if((columnValues = allocCharMatrix(updateCount, LEN)) == NULL) {
         printf("!! Not enough memory (f userUpdatesTable) !!\n");
         free(columnIndices);
         return;
-    }
-    for(i = 0; i < updateCount; i++) {
-        columnValues[i] = (char *)malloc(LEN * sizeof(char));
-        if(columnValues[i] == NULL) {
-            for(j = 0; j < i; j++) { // free previously allocated blocks
-                free(columnValues[j]);
-            }
-            printf("!! Not enough memory (f userUpdatesTable) !!\n");
-            free(columnValues), free(columnIndices);
-            return;
-        }
     }
 
     printf("Enter 'column index' - 'new value' pairs (indices start at 1)\n");
