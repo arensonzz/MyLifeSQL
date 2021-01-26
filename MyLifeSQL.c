@@ -20,9 +20,9 @@
 #define STUDENT_TO_COURSE_FILE "studentToCourse.txt"
 #define CLASS_LIST_FILE "_SINIFLISTESI.txt"
 
-#define STUDENT_IDS_FILE "studentIds.txt"
-#define INSTRUCTOR_IDS_FILE "instructorIds.txt"
-#define STUDENT_TO_COURSE_IDS_FILE "studentToCourseIds.txt"
+#define STUDENT_IDS_FILE "ID_student.txt"
+#define INSTRUCTOR_IDS_FILE "ID_instructor.txt"
+#define STUDENT_TO_COURSE_IDS_FILE "ID_studentToCourse.txt"
 
 /* Helper functions */
 char **allocCharMatrix(int nrows, int ncolumns);
@@ -815,7 +815,7 @@ void userUpdatesTable(const char *fileName, const char *rowId)
     /* Gets index-'new value' pairs from user and by calling updateTableWith array function
      * updates given table.
      */
-    int updateCount, i, j, p;
+    int updateCount, i, p;
     int columnCount;
     int len;
     int *columnIndices;
