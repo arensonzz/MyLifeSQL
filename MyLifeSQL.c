@@ -38,6 +38,7 @@ int getColumnCount(const char *fileName);
 char *selectFromRow(const char *row, int columnIndex, char *resultStr);
 void printFormattedRow(const char *row, FILE *outputStream);
 void printColumnNames(FILE *outputStream, int argCount, ...);
+void deleteFiles(void);
 
 /* Generic functions */
 int insertIntoTable(const char *fileName, void (*getStr)(char *));
@@ -139,6 +140,7 @@ int main(void)
         printf("[a] Instructor queries\n"
                "[s] Course queries\n"
                "[d] Student queries\n"
+               "[f] Delete all of the created files\n"
                "[x] Exit\n");
         printf("Choice: ");
         scanf("%c", &ch1);
@@ -319,6 +321,9 @@ int main(void)
                 }
             }
             break;
+        case 'f':
+            deleteFiles();
+            break;
         case 'x':
             stayInMenu = 0;
             break;
@@ -361,6 +366,7 @@ void deallocCharMatrix(char **mat, int nrows)
         free(mat[i]);
     free(mat);
 }
+
 int getNextId(const char *fileName)
 {
     /* id file format is like this:
@@ -599,6 +605,23 @@ void printColumnNames(FILE *outputStream, int argCount, ...)
     fprintf(outputStream, "\n");
     // free the 2d array
     deallocCharMatrix(argVector, argCount);
+}
+
+void deleteFiles(void)
+{
+    int flag = 0;
+    
+    flag = remove(STUDENTS_FILE) ? 1 : flag;
+    flag = remove(INSTRUCTORS_FILE) ? 1 : flag;
+    flag = remove(COURSES_FILE) ? 1 : flag;
+    flag = remove(STUDENT_TO_COURSE_FILE) ? 1 : flag;
+    
+    flag = remove(STUDENT_IDS_FILE) ? 1 : flag;
+    flag = remove(INSTRUCTOR_IDS_FILE) ? 1 : flag;
+    flag = remove(STUDENT_TO_COURSE_IDS_FILE) ? 1 : flag;
+    if(flag) {
+        printf("!! Couldn't delete some of the files. !!\n");
+    }
 }
 
 /* Generic functions */
