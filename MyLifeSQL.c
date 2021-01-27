@@ -432,17 +432,19 @@ long getIdLocation(const char *fileName, const char *needle)
     char buf[BUF_LEN];
     char tmpBuf[BUF_LEN];
     FILE *file = fopen(fileName, "r");
+    long loc;
     int i;
 
     if(file == NULL) return FILE_ERR;
-    while(fgets(buf, BUF_LEN, file) != NULL) {
+    while(1) {
+        loc = ftell(file);
+        if(fgets(buf, BUF_LEN, file) == NULL) break;
         for(i = 0; buf[i] != ',' && buf[i] != '\n' && buf[i] != EOF; i++) { // only look at the first column
             tmpBuf[i] = buf[i];
         }
         tmpBuf[i] = '\0';
         if(strstr(tmpBuf, needle) != NULL) {
-            // set cursor location to point to the beginning of the buf
-            long loc = feof(file) ? ftell(file) - strlen(buf) : ftell(file) - strlen(buf) - 1;
+            // found the id
             fclose(file);
             return loc;
         }
