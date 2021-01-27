@@ -26,7 +26,7 @@
 
 /* Helper functions */
 char **allocCharMatrix(int nrows, int ncolumns);
-void deallocCharMatrix(char **mat, int nrows);
+void deallocCharMatrix(char **mat);
 int getNextId(const char *fileName);
 void pushId(int id, const char *fileName);
 long getIdLocation(const char *fileName, const char *needle);
@@ -124,6 +124,8 @@ int main(void)
     fclose(fopen(COURSES_FILE, "a"));
     fclose(fopen(INSTRUCTORS_FILE, "a"));
     fclose(fopen(STUDENT_TO_COURSE_FILE, "a"));
+
+
 
     printf("Welcome to MyLifeSQL...\n"
            "-----------------------\n");
@@ -333,37 +335,36 @@ int main(void)
         }
     }
 
+
     return 0;
 }
 
 /* Helper functions */
 char **allocCharMatrix(int nrows, int ncolumns) {
-    /* allocates memory for 2d char array 
+    /* allocates continuous memory for 2d char array
      * On success returns the char **, otherwise frees all allocated blocks and returns NULL
      */
-    int i, j;
-    char **mat = (char **)malloc(nrows * sizeof(char *));
-    
+    int i;
+    char **mat;
+    char *t0;
+
+    mat = malloc(nrows * sizeof(*mat));
     if(mat == NULL) return NULL;
+    t0 = malloc(nrows * ncolumns * sizeof(*t0));
+    if(t0 == NULL) {
+        free(mat);
+        return NULL;
+    }
     for(i = 0; i < nrows; i++) {
-        mat[i] = (char *)malloc(ncolumns * sizeof(char));
-        if(mat[i] == NULL) {
-            for(j = 0; j < i; j++) 
-                free(mat[j]);
-            free(mat);
-            return NULL;
-        }
+        mat[i] = t0 + i * ncolumns;
     }
     return mat;
 }
 
-void deallocCharMatrix(char **mat, int nrows)
+void deallocCharMatrix(char **mat)
 {
     /* frees the memory allocated for 2d char array */
-    int i;
-    
-    for(i = 0; i < nrows; i++) 
-        free(mat[i]);
+    free(mat[0]); // free the array holding data
     free(mat);
 }
 
@@ -372,9 +373,9 @@ int getNextId(const char *fileName)
     /* id file format is like this:
      *  First line: next auto-increment id
      *  Second line: comma seperated list of numbers to use before using auto-increment
-     * Everytime this function is called, it pops one number out of second line of idFile 
+     * Everytime this function is called, it pops one number out of second line of idFile
      * until there are no numbers left.
-     * If second line contains only comma then function returns next auto-increment id  
+     * If second line contains only comma then function returns next auto-increment id
      */
     FILE *file = fopen(fileName, "r+");
     if(file == NULL) { // id file doesn't exist
@@ -432,17 +433,19 @@ long getIdLocation(const char *fileName, const char *needle)
     char buf[BUF_LEN];
     char tmpBuf[BUF_LEN];
     FILE *file = fopen(fileName, "r");
+    long loc;
     int i;
 
     if(file == NULL) return FILE_ERR;
-    while(fgets(buf, BUF_LEN, file) != NULL) {
+    while(1) {
+        loc = ftell(file);
+        if(fgets(buf, BUF_LEN, file) == NULL) break;
         for(i = 0; buf[i] != ',' && buf[i] != '\n' && buf[i] != EOF; i++) { // only look at the first column
             tmpBuf[i] = buf[i];
         }
         tmpBuf[i] = '\0';
         if(strstr(tmpBuf, needle) != NULL) {
-            // set cursor location to point to the beginning of the buf
-            long loc = feof(file) ? ftell(file) - strlen(buf) : ftell(file) - strlen(buf) - 1;
+            // found the id
             fclose(file);
             return loc;
         }
@@ -515,7 +518,7 @@ int getColumnCount(const char *fileName)
 
 char *selectFromRow(const char *row, int columnIndex, char *resultStr)
 {
-    /* Takes a string that contains one row of any table as argument. Then it parses this string and 
+    /* Takes a string that contains one row of any table as argument. Then it parses this string and
      * stores the columnIndex'th column at resultStr.
      * If an error occurs, function empties resultStr by assigning '\0' to its first character.
      */
@@ -540,7 +543,7 @@ char *selectFromRow(const char *row, int columnIndex, char *resultStr)
 void printFormattedRow(const char *row, FILE *outputStream)
 {
     /* Takes a string that contains one row of any table and prints it to the
-     * stream pointed by FILE *outputStream with tabs between every column 
+     * stream pointed by FILE *outputStream with tabs between every column
      * outputStream must be opened in write or append mode.
      */
     char *token;
@@ -604,18 +607,18 @@ void printColumnNames(FILE *outputStream, int argCount, ...)
     }
     fprintf(outputStream, "\n");
     // free the 2d array
-    deallocCharMatrix(argVector, argCount);
+    deallocCharMatrix(argVector);
 }
 
 void deleteFiles(void)
 {
     int flag = 0;
-    
+
     flag = remove(STUDENTS_FILE) ? 1 : flag;
     flag = remove(INSTRUCTORS_FILE) ? 1 : flag;
     flag = remove(COURSES_FILE) ? 1 : flag;
     flag = remove(STUDENT_TO_COURSE_FILE) ? 1 : flag;
-    
+
     flag = remove(STUDENT_IDS_FILE) ? 1 : flag;
     flag = remove(INSTRUCTOR_IDS_FILE) ? 1 : flag;
     flag = remove(STUDENT_TO_COURSE_IDS_FILE) ? 1 : flag;
@@ -635,7 +638,7 @@ int insertIntoTable(const char *fileName, void (*getStr)(char *))
     int returnStatus = 0; // 0 means successful insert
 
     if(file == NULL) return FILE_ERR;
-    if((buf = (char *)malloc(BUF_LEN * sizeof(char))) == NULL) {
+    if((buf = malloc(BUF_LEN * sizeof(*buf))) == NULL) {
         fclose(file);
         return MEM_ERR;
     }
@@ -652,7 +655,7 @@ int insertIntoTable(const char *fileName, void (*getStr)(char *))
 
 int deleteFromTable(const char *fileName, const char *rowId)
 {
-    /* On success deletes a row from its related entity table and returns 0. 
+    /* On success deletes a row from its related entity table and returns 0.
      * Otherwise returns FILE_ERR, MEM_ERR or -1
      */
     char *text;
@@ -666,7 +669,7 @@ int deleteFromTable(const char *fileName, const char *rowId)
         printf("!! Couldn't open the '%s' file. !!\n", fileName);
         return FILE_ERR;
     }
-    if((text = (char *)malloc((fileLen + 10) * sizeof(char))) == NULL) {
+    if((text = malloc((fileLen + 10) * sizeof(*text))) == NULL) {
         fclose(file);
         printf("!! Not enough memory (f deleteFromTable) !!\n");
         return MEM_ERR;
@@ -698,12 +701,12 @@ int deleteFromTable(const char *fileName, const char *rowId)
 
 int updateTable(const char *fileName, const char *rowId, int argCount, ...)
 {
-    /* Arguments: name of the file to update, ID of the row to update, 
-     * number of variable length arguments, indices of the columns to be changed (ascending order), 
+    /* Arguments: name of the file to update, ID of the row to update,
+     * number of variable length arguments, indices of the columns to be changed (ascending order),
      *  corresponding values to be inserted into columns in the same order with indices.
      * Usage: updateTable("students.txt", "4", 4, 3, 4, "20", "Sarah")
      *      update row with the ID 4 in students.txt, place "20" into 3rd column, place "Sarah" into 4th column
-     * 
+     *
      * This function only parses arguments and turns them into two arrays. Then calls updateTableWithArray.
      * Returns 0 if successful, otherwise returns MEM_ERR, -1 or returnStatus
      */
@@ -716,7 +719,7 @@ int updateTable(const char *fileName, const char *rowId, int argCount, ...)
 
     if(argCount % 2 != 0) return -1; // argCount must be an even number
 
-    if((columnIndices = (int *)malloc(updateCount * sizeof(int))) == NULL) {
+    if((columnIndices = malloc(updateCount * sizeof(*columnIndices))) == NULL) {
         printf("!! Not enough memory (f updateTable) !!\n");
         return MEM_ERR;
     }
@@ -743,7 +746,7 @@ int updateTable(const char *fileName, const char *rowId, int argCount, ...)
     returnStatus = updateTableWithArray(fileName, rowId, updateCount, columnIndices, columnValues);
 
     free(columnIndices);
-    deallocCharMatrix(columnValues, updateCount);
+    deallocCharMatrix(columnValues);
     return returnStatus;
 }
 
@@ -764,7 +767,7 @@ int updateTableWithArray(const char *fileName, const char *rowId, int len, int *
     long fileLen = getFileLength(fileName);
 
     idLoc = getIdLocation(fileName, rowId);
-    if((text = (char *)malloc((fileLen + 10) * sizeof(char))) == NULL) {
+    if((text = malloc((fileLen + 10) * sizeof(*text))) == NULL) {
         printf("!! Not enough memory (f updateTableWithArray) !!\n");
         return MEM_ERR;
     }
@@ -859,7 +862,7 @@ void userUpdatesTable(const char *fileName, const char *rowId)
     len = updateCount; // length for loop
     if(updateCount <= 0) return;
 
-    if((columnIndices = (int *)malloc(updateCount * sizeof(int))) == NULL) {
+    if((columnIndices = malloc(updateCount * sizeof(*columnIndices))) == NULL) {
         printf("!! Not enough memory (f userUpdatesTable) !!\n");
         return;
     }
@@ -889,7 +892,8 @@ void userUpdatesTable(const char *fileName, const char *rowId)
         }
     }
     updateTableWithArray(fileName, rowId, updateCount, columnIndices, columnValues);
-    free(columnIndices), free(columnValues);
+    deallocCharMatrix(columnValues);
+    free(columnIndices);
 }
 
 char *selectFromTable(const char *fileName, const char *rowId, int columnIndex, char *resultStr)
@@ -941,7 +945,7 @@ int listJoinTwoTables(const char *srcTableName,
 {
     /* This function first joins srcTable with destTable on srcColumn = destColumn
      * Prints the resulting rows to the outputStream
-     * 
+     *
      * Arguments:
      *  srcIndex: index of the srcTable's column that has "1st" key
      *  destIndex: index of the destTable's column that has "1st" key as foreign key
@@ -1005,7 +1009,7 @@ int listJoinThreeTables(const char *srcTableName,
     FILE *outputStream)
 {
     /* This function first joins srcTable with midTable on srcColumn = srcToMidColumn
-     * then takes the rows of the first join and joins them with destTable 
+     * then takes the rows of the first join and joins them with destTable
      * on midToDestColumn = destColumn
      * Prints the resulting rows to the outputStream
      * Arguments:
@@ -1014,7 +1018,7 @@ int listJoinThreeTables(const char *srcTableName,
      *  midToDestIndex: index of the midTable's column that has "2nd" key
      *  destIndex: index of the destTable's column that has "2nd" key as foreign key
      *  sourceId: ID of the src row that we want to find connections of
-     * 
+     *
      * Returns 0 on success, FILE_ERR or -1 otherwise
      */
     FILE *srcTable;
@@ -1127,7 +1131,7 @@ void listStudentsInCourseOfInstructor(int instructorIdNum)
 // Student
 void getStudentStr(char *str)
 {
-    /* Creates a string that holds informations of a new Student. 
+    /* Creates a string that holds informations of a new Student.
      * This string can be used in insertIntoTable function */
     Student s;
 
@@ -1245,8 +1249,8 @@ void enrollStudentInCourse(int studentId, const char *courseCode, int courseCoun
 {
     /* Enrolls a student in a course. It checks if course is on full capacity before proceeding.
      * If given studentId-courseCode pair is available in the StudentToCourse table
-     * then check the enrollState value. If enrollState is 0 then makes it 1, otherwise prints warning message. 
-     * 
+     * then check the enrollState value. If enrollState is 0 then makes it 1, otherwise prints warning message.
+     *
      * This function also updates courseCount and totalCredit columns of the student
      */
     StudentToCourse s;
@@ -1295,12 +1299,12 @@ void enrollStudentInCourse(int studentId, const char *courseCode, int courseCoun
         }
         selectFromTable(COURSES_FILE, s.courseCode, 4, capacityStr); // get the capacity
         capacity = atoi(capacityStr);
-        
+
         // Get number of enrolled students of the course
         while(fgets(line, BUF_LEN, file) != NULL) {
             StudentToCourse c;
             strcpy(c.courseCode, "-1"); // initialize with invalid ID
-            
+
             sscanf(line, "%d,%d,%49[^,],%49[^,],%d", &c.id, &c.studentId, c.courseCode, c.dateCreated, &c.enrollState);
             if(strcmp(c.courseCode, courseCode) == 0 && c.enrollState == 1) {
                 enrollCount++;
